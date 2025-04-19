@@ -1,0 +1,28 @@
+---
+- name: Check server load
+  hosts: all
+  tasks:
+    - name: Check real CPU usage percentage
+      ansible.builtin.shell: "top -n 1 -b | awk '/^%Cpu/{print $2}'"
+      register: cpu_usage
+      changed_when: false
+
+    - name: Check memory usage
+      ansible.builtin.shell: 
+        cmd: "free -m | awk '/Mem:/ {print $3/$2}'"
+      register: memory_usage
+      changed_when: false
+
+    - name: Check disk usage
+      ansible.builtin.shell: 
+        cmd: "df -h --output=pcent / | tail -1 | tr -d '%'"
+      register: disk_usage
+      changed_when: false
+
+    - name: Print server load summary
+      ansible.builtin.debug:
+        msg: 
+          - "cpuLoad_{{ inventory_hostname }}: {{ cpu_usage.stdout }}"
+          - "memUsage_{{ inventory_hostname }}: {{ memory_usage.stdout }}"
+          - "diskUsage_{{ inventory_hostname }}: {{ disk_usage.stdout }}"
+

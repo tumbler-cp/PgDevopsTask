@@ -1,0 +1,67 @@
+---
+- name: Configure PostgreSQL to allow user 'student' from specific server
+  hosts: postgres_servers
+  become: true
+  vars:
+    postgres_user: "student"
+    postgres_password: "student_password"
+    allowed_ip: "{{ hostvars[groups['app_servers'][0]].ansible_host }}/32"
+
+  tasks:
+    - name: Check if PostgreSQL is installed
+      command: "psql --version"
+      register: postgres_installed
+      failed_when: postgres_installed.rc != 0
+      changed_when: false
+
+    - name: Find PostgreSQL version
+      shell: |
+        psql --version | awk '{print $3}' | cut -d. -f1
+      register: pg_version
+      changed_when: false
+      when: postgres_installed.rc == 0
+
+    - name: Set config paths
+      set_fact:
+        postgres_conf_path: "{{ '/etc/postgresql/' ~ pg_version.stdout ~ '/main/postgresql.conf' if ansible_os_family == 'Debian' else '/var/lib/pgsql/data/postgresql.conf' }}"
+        pg_hba_conf_path: "{{ '/etc/postgresql/' ~ pg_version.stdout ~ '/main/pg_hba.conf' if ansible_os_family == 'Debian' else '/var/lib/pgsql/data/pg_hba.conf' }}"
+      when: postgres_installed.rc == 0
+
+    - name: Ensure PostgreSQL service is started
+      service:
+        name: "{{ 'postgresql' if ansible_os_family == 'Debian' else 'postgresql-' ~ pg_version.stdout }}"
+        state: started
+      when: postgres_installed.rc == 0
+
+    - name: Configure PostgreSQL to listen on all addresses
+      lineinfile:
+        path: "{{ postgres_conf_path }}"
+        regexp: '^#?listen_addresses'
+        line: "listen_addresses = '*'"
+        state: present
+      notify: Restart PostgreSQL
+      when: postgres_installed.rc == 0
+
+    - name: Allow connections for student from specific IP
+      lineinfile:
+        path: "{{ pg_hba_conf_path }}"
+        line: "host    all             {{ postgres_user }}             {{ allowed_ip }}            md5"
+        state: present
+        insertafter: '^# IPv4 local connections:'
+      notify: Restart PostgreSQL
+      when: postgres_installed.rc == 0
+
+    - name: Create PostgreSQL user if not exists
+      postgresql_user:
+        name: "{{ postgres_user }}"
+        password: "{{ postgres_password }}"
+        role_attr_flags: "LOGIN"
+      become_user: postgres
+      notify: Restart PostgreSQL
+      when: postgres_installed.rc == 0
+
+  handlers:
+    - name: Restart PostgreSQL
+      service:
+        name: "{{ 'postgresql' if ansible_os_family == 'Debian' else 'postgresql-' ~ pg_version.stdout }}"
+        state: restarted

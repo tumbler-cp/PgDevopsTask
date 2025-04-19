@@ -1,0 +1,14 @@
+- name: Check PostgreSQL functionality
+  hosts: all
+  become: yes  
+  tasks:
+    - name: Check if PostgreSQL is running
+      become_user: postgres  
+      command: psql -c "SELECT 1;"
+      register: postgres_check
+      changed_when: false  
+      failed_when: "'1' not in postgres_check.stdout" 
+
+    - name: Display PostgreSQL check result
+      debug:
+        msg: "{{ postgres_check.stdout }}"
