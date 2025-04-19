@@ -1,5 +1,4 @@
 Vagrant.configure("2") do |config|
-  # Настройки Debian
   config.vm.define "debian" do |debian|
     debian.vm.box = "debian/bookworm64"
     debian.vm.hostname = "debian"
