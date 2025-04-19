@@ -23,6 +23,10 @@
 ```bash
 ./main.py <IP-адрес Debian-сервера>,<IP-адрес Almalinux/CentOS-сервера>
 ```
+либо если нет прав на исполнение 
+```bash
+python main.py <IP-адрес Debian-сервера>,<IP-адрес Almalinux/CentOS-сервера>
+```
 
 # Тестовое окружение  
 
